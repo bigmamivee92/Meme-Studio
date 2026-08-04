@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html><head><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MEME STUDIO - Freemium</title>
+<style>
+*{box-sizing:border-box;font-family:Inter,system-ui}body{margin:0;background:#0a0a0a;color:#fff}
+header{padding:16px 20px;display:flex;justify-content:space-between;border-bottom:1px solid #222}
+.pro-badge{background:#6d5bff;padding:6px 12px;border-radius:20px;font-size:12px;font-weight:700;cursor:pointer}
+#canvasWrap{position:relative;width:100%;max-width:500px;aspect-ratio:4/5;background:#111;border-radius:16px;overflow:hidden;margin:16px auto;display:flex;align-items:center;justify-content:center}
+canvas{max-width:100%}#paywall{position:fixed;inset:0;background:rgba(0,0,0,.85);backdrop-filter:blur(12px);display:none;align-items:center;justify-content:center;z-index:99;padding:20px}
+.paywall-card{background:#151515;border:1px solid #2a2a2a;border-radius:20px;padding:24px;max-width:360px;width:100%;text-align:center}
+.plan{background:#1e1e1e;border:1px solid #2a2a2a;border-radius:14px;padding:14px;margin:10px 0;text-align:left;cursor:pointer}
+.plan.best{border-color:#6d5bff;background:#1a162e}.chip{background:#222;border:1px solid #333;padding:8px 14px;border-radius:99px;font-size:13px;cursor:pointer;white-space:nowrap}.chip.lock::after{content:" 🔒"}.chip.active{background:#fff;color:#000}
+.controls{max-width:500px;margin:0 auto 40px;padding:14px;background:#151515;border-radius:16px;display:flex;flex-direction:column;gap:12px}
+button.primary{background:#fff;color:#000;border:0;padding:14px;border-radius:12px;font-weight:700;width:100%;cursor:pointer}
+.row{display:flex;gap:8px;overflow-x:auto}
+</style></head><body>
+<header><b>MEME STUDIO</b><div id="proBtn" class="pro-badge">FREE → UPGRADE</div></header>
+<div id="canvasWrap"><canvas id="c" width="1080" height="1350"></canvas></div>
+
+<div class="controls">
+<input type="file" id="upload" accept="image/*,video/*" hidden>
+<button class="primary" onclick="upload.click()">+ Upload Photo / Video</button>
+<input id="topText" placeholder="TOP TEXT" value="WHEN CLIENT SAYS">
+<input id="bottomText" placeholder="BOTTOM TEXT" value="MAKE IT POP MORE">
+<label style="font-size:11px;color:#666">FILTERS</label>
+<div class="row" id="filters"></div>
+<div class="row" style="margin-top:8px">
+<div class="chip" data-font="Impact">IMPACT</div>
+<div class="chip" data-font="Anton">BOLD</div>
+<div class="chip lock" data-pro="font" data-font="Bebas">BEBAS</div>
+<div class="chip lock" data-pro="font" data-font="serif">SERIF PRO</div>
+</div>
+<button class="primary" id="export" style="background:#6d5bff;color:#fff">Export HD →</button>
+<p style="font-size:11px;color:#555;text-align:center">Free: 720p + watermark. Creator removes it.</p>
+</div>
+
+<div id="paywall"><div class="paywall-card">
+<h2 style="margin:0">Unlock Creator Pro?</h2><p style="color:#888;font-size:14px">Free is cool, but Pro is how creators go viral.</p>
+<div class="plan best" onclick="buy('creator')"><b>CREATOR $2.99/mo</b><br><span style="font-size:13px;color:#aaa">✓ No watermark ✓ 1080p HD ✓ 30+ filters ✓ Custom fonts</span></div>
+<div class="plan" onclick="buy('pro')"><b>PRO $5.99/mo</b><br><span style="font-size:13px;color:#aaa">Everything in Creator + 4K, Video export, BG Remover, Templates</span></div>
+<button onclick="closePay()" style="background:0;border:0;color:#666;margin-top:12px;cursor:pointer">Maybe later</button>
+<p style="font-size:10px;color:#444;margin-top:12px">For live app, connect Stripe Checkout here</p>
+</div></div>
+
+<script>
+const canvas=document.getElementById('c'), ctx=canvas.getContext('2d'), proBtn=document.getElementById('proBtn');
+let isPro = localStorage.getItem('ms_pro')==='1';
+let isCreator = isPro || localStorage.getItem('ms_creator')==='1';
+function updateBadge(){ proBtn.textContent = isPro? 'PRO ✓' : isCreator? 'CREATOR ✓' : 'FREE → UPGRADE'; proBtn.style.background=isCreator?'#00d37f':'#6d5bff'; }
+updateBadge();
+let img=new Image(), currentFilter='none';
+const FILTERS={'Original':'none','B&W':'grayscale(100%)','Sepia':'sepia(100%)','Vintage':'sepia(40%) contrast(120%)','Vibrant':'saturate(180%)','Cold':'hue-rotate(180deg)','Warm':'sepia(30%) saturate(140%)','Cyber Pro':'saturate(200%) hue-rotate(280deg)'};
+const fRow=document.getElementById('filters');
+Object.entries(FILTERS).forEach(([k,v])=>{
+  let d=document.createElement('div'); d.className='chip'+(k.includes('Pro')?' lock':'')+(k=='Original'?' active':''); d.textContent=k; d.dataset.pro=k.includes('Pro')?'filter':'';
+  d.onclick=()=>{ if(d.dataset.pro &&!isCreator){ showPay(); return; } currentFilter=v; document.querySelectorAll('#filters.chip').forEach(c=>c.classList.remove('active')); d.classList.add('active'); draw(); };
+  fRow.appendChild(d);
+});
+upload.onchange=e=>{ const url=URL.createObjectURL(e.target.files[0]); img.src=url; img.onload=draw; };
+function draw(){
+  ctx.clearRect(0,0,1080,1350); ctx.filter=currentFilter; if(img.src){ let r=Math.max(1080/img.width,1350/img.height); let w=img.width*r,h=img.height*r; ctx.drawImage(img,(1080-w)/2,(1350-h)/2,w,h);} else{ctx.fillStyle='#111';ctx.fillRect(0,0,1080,1350);}
+  ctx.filter='none'; ctx.fillStyle='#fff'; ctx.strokeStyle='#000'; ctx.lineWidth=12; ctx.textAlign='center'; ctx.font='900 90px Impact';
+  let topV=document.getElementById('topText').value, bottomV=document.getElementById('bottomText').value;
+  if(topV){ctx.strokeText(topV.toUpperCase(),540,200); ctx.fillText(topV.toUpperCase(),540,200);}
+  if(bottomV){ctx.strokeText(bottomV.toUpperCase(),540,1150); ctx.fillText(bottomV.toUpperCase(),540,1150);}
+  if(!isCreator){ctx.fillStyle='rgba(255,255,255,.6)'; ctx.font='700 24px Inter'; ctx.fillText('MEME STUDIO FREE',540,1300);}
+}
+document.querySelectorAll('[data-font]').forEach(c=>c.onclick=()=>{ if(c.dataset.pro &&!isCreator){showPay();return;} document.querySelectorAll('[data-font]').forEach(x=>x.classList.remove('active')); c.classList.add('active'); draw(); });
+['topText','bottomText'].forEach(id=>document.getElementById(id).oninput=draw);
+function showPay(){ document.getElementById('paywall').style.display='flex'; }
+function closePay(){ document.getElementById('paywall').style.display='none'; }
+proBtn.onclick=showPay;
+function buy(tier){ localStorage.setItem(tier=='pro'?'ms_pro':'ms_creator','1'); isPro=tier=='pro'; isCreator=true; updateBadge(); closePay(); draw(); alert(tier.toUpperCase()+' unlocked! (demo mode)'); }
+document.getElementById('export').onclick=()=>{
+  if(!isCreator){ showPay(); return; } // paywall on export for free users after 3 uses - you can add counter logic
+  const a=document.createElement('a'); a.download='meme-hd.png'; a.href=canvas.toDataURL('image/png',1.0); a.click();
+};
+// Allow 1 free export before paywall for virality
+let freeExports = parseInt(localStorage.getItem('free_exports')||'0');
+document.getElementById('export').onclick=()=>{
+  if(!isCreator && freeExports>=1){ showPay(); return; }
+  if(!isCreator) { localStorage.setItem('free_exports',freeExports+1); }
+  const a=document.createElement('a'); a.download=isCreator?'meme-hd.png':'meme-free.png'; a.href=canvas.toDataURL('image/png',isCreator?1.0:0.7); a.click();
+};
+draw();
+</script></body></html>
